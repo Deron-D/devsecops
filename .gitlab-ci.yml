@@ -4,6 +4,7 @@ include:
 stages:
   - pre-build
   - build
+  - post-build
   - test
   - deploy
 variables:
@@ -65,6 +66,37 @@ build_docker_image:
       --context "${CI_PROJECT_DIR}"/"${DOCKER_CUSTOM_SUBFOLDER}"
       --dockerfile "${CI_PROJECT_DIR}/"${DOCKER_CUSTOM_SUBFOLDER}"/Dockerfile"
       --destination "${IMAGE_NAME}:${CI_COMMIT_SHA}"
+
+container_scanning:
+  image: 
+    name: pindar/jq
+    entrypoint: [""]
+  stage: post-build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: always
+  allow_failure: true
+  artifacts:
+    when: always
+    paths:
+      - gl-container-scanning-report-yc.json
+  script:
+    - export CI_COMMIT_SHA=${CI_COMMIT_SHA}
+    # Install YC CLI.
+    - curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -a && cp /root/yandex-cloud/bin/yc /usr/bin/
+    # Start scanning.
+    - echo "Scanning image $IMAGE_NAME:${CI_COMMIT_SHA} ${CI_REGISTRY}/${CI_COMMIT_REF_SLUG}:${CI_COMMIT_SHA}..."
+    - export IMAGE_ID=$(yc container image list --registry-id $(echo ${CI_REGISTRY} | cut -d/ -f2) --format=json | jq -r --arg CI_COMMIT_SHA $CI_COMMIT_SHA '.[] | select(.tags[0]==$CI_COMMIT_SHA) | .id ')
+    # Make a report.
+    - export SCAN_RESULT=$(yc container image scan $IMAGE_ID --format=json)
+    - export CRIT_VULN=$(echo $SCAN_RESULT | jq -r '.vulnerabilities.critical // 0')
+    - export HIGH_VULN=$(echo $SCAN_RESULT | jq -r '.vulnerabilities.high // 0')
+    - export SCAN_ID=$(echo $SCAN_RESULT | jq -r '.id')
+    - echo "Scan results:"
+    - yc container image list-vulnerabilities --scan-result-id="${SCAN_ID}" --format json | jq -r '.[] | select(.severity=="CRITICAL", .severity=="HIGH")'
+    - yc container image list-vulnerabilities --scan-result-id="${SCAN_ID}" --format json | jq -r '.[] | select(.severity=="CRITICAL", .severity=="HIGH")' > gl-container-scanning-report-yc.json
+    # Check the result.
+    - (( SUM = $CRIT_VULN + $HIGH_VULN )) && (( RES = (SUM >= 1) )) && echo $RES && echo "image has $CRIT_VULN critical vulns and $HIGH_VULN high vulns" && exit 1 || echo "image has no high or crit vulns" exit 0
 
 .deploy:
   image: dtzar/helm-kubectl:latest
