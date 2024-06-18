@@ -111,6 +111,43 @@ test:
   script:
     - echo "Test succeed"
 
+dast-prepare:
+  extends: .deploy
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: always
+  script:
+    - APP_HOST=${CI_PROJECT_NAME}-dast.$DOMAIN_NAME
+    - helm upgrade --install $APP_NAME-dast ./k8s/owasp10
+      --namespace $APP_NAME-dast
+      --create-namespace
+      --set owasp10.image=$IMAGE_NAME:${CI_COMMIT_SHA}
+      --atomic
+      --set owasp10.ingress.host=$APP_HOST
+    - echo "APP_ADDRESS is $APP_HOST"
+    - echo "APP_ADDRESS=$APP_HOST" >> app.env
+  artifacts:
+    reports:
+      dotenv: app.env
+
+dast-scan:
+  stage: test
+  needs: ["dast-prepare"]
+  image:
+    name: zaproxy/zap-stable:2.15.0
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: always
+  script:
+    - mkdir -p /zap/wrk
+    - zap-full-scan.py -t "http://${APP_ADDRESS}" -I -J zap.json
+    - cp /zap/wrk/zap.json .
+  artifacts:
+    when: always
+    paths:
+      - zap.json
+
 deploy:
   extends: .deploy
   stage: deploy
