@@ -1,0 +1,52 @@
+stages:
+  - build
+  - test
+  - deploy
+variables:
+  IMAGE_NAME: ${CI_REGISTRY}/${CI_COMMIT_REF_SLUG}
+  APP_NAME: owasp10
+  GITLAB_AGENT: "$CI_PROJECT_PATH:gitlab-agent"
+
+build_docker_image:
+  stage: build
+  variables:
+    DOCKER_CUSTOM_SUBFOLDER: "" # Specify a custom path (if any) to your folder with docker files.
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    #- echo export IMAGE_ID=$(yc container image list --registry-id $(echo ${CI_REGISTRY} | cut -d/ -f2) --format=json | jq -r --arg CI_COMMIT_SHA $CI_COMMIT_SHA '.[] | select(.tags[0]==$CI_COMMIT_SHA) | .id ')
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(echo -n "json_key:${CI_REGISTRY_KEY}" | base64 | tr -d '\n' )\"}}}" > /kaniko/.docker/config.json
+    - >-
+      /kaniko/executor
+      --cache=true
+      --cache-copy-layers=true
+      --cache-run-layers=true
+      --cache-repo=${IMAGE_NAME}-cache
+      --context "${CI_PROJECT_DIR}"/"${DOCKER_CUSTOM_SUBFOLDER}"
+      --dockerfile "${CI_PROJECT_DIR}/"${DOCKER_CUSTOM_SUBFOLDER}"/Dockerfile"
+      --destination "${IMAGE_NAME}:${CI_COMMIT_SHA}"
+
+.deploy:
+  image: dtzar/helm-kubectl:latest
+  before_script:
+    - kubectl config use-context $GITLAB_AGENT
+
+test:
+  stage: test
+  script:
+    - echo "Test succeed"
+
+deploy:
+  extends: .deploy
+  stage: deploy
+  script:
+    - APP_HOST=${CI_PROJECT_NAME}.$DOMAIN_NAME
+    - helm upgrade --install $APP_NAME ./k8s/owasp10
+      --namespace $APP_NAME
+      --create-namespace
+      --set owasp10.image=$IMAGE_NAME:${CI_COMMIT_SHA}
+      --atomic
+      --set owasp10.ingress.host=$APP_HOST
+    - echo "APP_ADDRESS is $APP_HOST"

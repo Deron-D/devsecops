@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        {% block head %}
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+        {% block styles %}
+        {{ bootstrap.load_css() }}
+        {% endblock %}
+
+        <title>Owasp Top Ten</title>
+        {% endblock %}
+    </head>
+    <body>
+
+        {% block content %}
+        <nav class="navbar navbar bg-body-tertiary">
+            <div class="container">
+                <a class="navbar-brand" href="#">
+                    <img src="{{ url_for('static', filename='ht-logo.png') }}" height="30" alt="HT"
+                        loading="lazy" />
+                </a>
+                <a class="navbar-brand" href="#">
+                    <img src="{{ url_for('static', filename='yc-logo-main.png') }}" height="30" alt="YC" loading="lazy" />
+                </a>
+            </div>
+        </nav>
+        <div class="px-1 py-2 my-2 text-center">
+        <h1 class="display-5 fw-bold">OWASP TOP 10</h1>
+        <div>
+            <img src="{{ url_for('static', filename='owasp10.png') }}" width="500" alt="owasp10"  />
+        </div>
+
+
+        </div>
+        <div class="px-4 text-center">
+          <div class="col-lg-3 mx-auto">
+            <div class="col-lg-6 mx-auto">
+                <p class="lead mb-4">Введите ip-адрес хоста для поиска уязвимостей </p>
+            </div>
+            <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+              <div class="input-group mb-3">
+                <!-- <input id="number" style="text-transform: uppercase" maxlength="9" type="text" class="form-control" placeholder="А000АА77"> -->
+                <input id="host" type="text" class="form-control" placeholder="8.8.8.8">
+                <!-- <span class="input-group-text">RUS</span> -->
+                <button class="btn btn-outline-secondary" type="button" id="submit">Проверить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="target" class="offset-lg-2 col-lg-8 px-4 py-5 my-5 d-none">
+
+        </div>
+
+        <div class="offset-lg-2 col-lg-8 px-4 py-5 my-5 d-none">
+          <div id="sourceError" class="alert alert-danger" role="alert">Произошла ошибка выполнения запроса:&nbsp;</div>
+
+          <div id="sourceEmpty" class="alert alert-success" role="alert">Уязвимостей не найдено</div>
+
+          <!-- <a id="sourceLink" href="/host/?host=">Ссылка на результаты проверки</a> -->
+
+          <table id="sourceTable" class="table">
+            <thead>
+              <tr>
+                <th scope="col">IP адрес хоста</th>
+                <th scope="col">Дата сканирования</th>
+                <th scope="col">Уязвимость</th>
+                <th scope="col">Описание</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr id="sourceRow" class="d-none">
+                <td class="host">host</td>
+                <td class="date">date</td>
+                <td class="name">name</td>
+                <td class="descr">descr</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {% endblock %}
+
+        {% block scripts %}
+            {{ bootstrap.load_js() }}
+            <script src="{{ url_for('static', filename='main.js') }}"></script>
+        {% endblock %}
+    </body>
+</html>

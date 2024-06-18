@@ -1,0 +1,6 @@
+services:
+  owasp10:
+    volumes:
+      - ./app:/app
+    environment:
+      - FLASK_DEBUG=1
